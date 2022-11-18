@@ -2,6 +2,7 @@ from random import randint
 
 import scrapy
 import time
+import json
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -35,7 +36,8 @@ def get_driver():
     #         command_executor='http://localhost:4444/wd/hub',
     #         desired_capabilities=DesiredCapabilities.CHROME)
 
-    driver = webdriver.Chrome(executable_path='/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver', options=options)
+    driver = webdriver.Chrome(executable_path='/home/mhmasuk/coding/scrapy_project/adidas_project/chromedriver',
+                              options=options)
     # driver = webdriver.Chrome('/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver')
 
     return driver
@@ -150,22 +152,15 @@ class AddidasCrawlSpider(scrapy.Spider):
             general_description_itemization_list.append(general_description_itemization.text.strip())
 
         # scroll to that element
-        desired_y = (general_description_of_the_product.size['height'] / 2) + general_description_of_the_product.location['y']
+        desired_y = (general_description_of_the_product.size['height'] / 2) + \
+                    general_description_of_the_product.location['y']
         window_h = driver.execute_script('return window.innerHeight')
         window_y = driver.execute_script('return window.pageYOffset')
         current_y = (window_h / 2) + window_y
         scroll_y_by = desired_y - current_y
 
         driver.execute_script("window.scrollBy(0, arguments[0]);", scroll_y_by)
-        time.sleep(5)
-
-        size_chart_headers_list = []
-        size_chart_headers = driver.find_elements(By.XPATH, '//html//body//div//main//div//div[@class="js-sizeDescription css-1a9ggpu"]//div//div//table//thead//tr//th')
-        print("size_chart_headers", size_chart_headers)
-
-        for size_chart_header in size_chart_headers:
-            size_chart_headers_list.append(size_chart_header.text.strip())
-        print("size_chart_headers_list", size_chart_headers_list)
+        time.sleep(10)
 
         # all the sizes
         all_the_size_list = []
@@ -173,31 +168,67 @@ class AddidasCrawlSpider(scrapy.Spider):
         for size in all_the_sizes:
             all_the_size_list.append(size.text.strip())
 
-        print('all_the_size_list', all_the_size_list)
+        # print('all_the_size_list', all_the_size_list)
 
         all_the_chest_list = []
         all_the_chest = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr[2]//td//span')
 
         for chest in all_the_chest:
             all_the_chest_list.append(chest.text.strip())
-        print("all_the_chest_list", all_the_chest_list)
+        # print("all_the_chest_list", all_the_chest_list)
 
         data_zip = dict(zip(all_the_size_list, all_the_chest_list))
-        print("data zip", data_zip)
+        # print("data zip", data_zip)
 
         all_size_value_list = []
         all_size_values = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr')
 
-        for all_size_value in all_size_values:
-            value_data_list = all_size_value.find_elements(By.XPATH, '//td//span')
+        all_value_zip_list = []
+        count = 2
+        for i in range(1, len(all_the_size_list) - 1):
             value_list = []
-            for value_data in value_data_list:
-                value_list.append(value_data.text.strip())
-                print("all_size_value", value_data.text.strip())
-                print("main value list", value_list)
+            for all_size_value in all_size_values:
+                value_data_list = all_size_value.find_elements(By.XPATH,
+                                                               f'//table[@class="sizeChartTable"]//tbody//tr[{count}]/td/span')
+
+                for value_data in value_data_list:
+                    value_list.append(value_data.text.strip())
+                    # print("all_size_value", value_data.text.strip())
+                    # print("main value list", value_list)
             data_zip = dict(zip(all_the_size_list, value_list))
-            print("all_size_value_list data_zip", data_zip)
+            # print("all_size_value_list data_zip", data_zip)
+            all_value_zip_list.append(data_zip)
             value_list.clear()
+            count += 1
+
+        # print("all_value_zip_list", all_value_zip_list)
+        # print("all_the_size_list", all_the_size_list)
+
+        size_chart_headers_list = []
+        # size_chart_headers = driver.find_elements(By.XPATH, '//html//body//div//main//div//div[@class="js-sizeDescription css-1a9ggpu"]//div//div//table//thead//tr//th')
+        size_chart_headers = driver.find_elements(
+            By.XPATH,
+            '//div[@class="sizeChart test-sizeChart css-l7ym9o"]//table[@class="sizeChartTable"]//thead//tr//th')
+        # print("size_chart_headers", size_chart_headers)
+
+        for size_chart_header in size_chart_headers[1:]:
+            size_chart_headers_list.append(size_chart_header.text.strip())
+        # print("size_chart_headers_list", size_chart_headers_list)
+
+        chart_data = dict(zip(size_chart_headers_list, all_value_zip_list))
+
+        # print(json.dumps(chart_data))
+
+        rating = driver.find_element(By.XPATH, '//span[@class="BVRRNumber BVRRRatingNumber"]')
+
+        number_of_reviews = driver.find_element(By.XPATH, '//span[@class="BVRRNumber BVRRBuyAgainTotal"]')
+
+        recommended_rate = driver.find_element(By.XPATH, '//span[@class="BVRRBuyAgainPercentage"]//span')
+
+        reviews = driver.find_elements(By.XPATH, '//div[starts-with(@id, "BVRRDisplayContentReviewID_")]')
+
+        for review in reviews:
+            review.find_element(By.XPATH, '//*[contains(@itemprop, "ratingValue")]').text.strip()
 
         data = {
             "chest": {
@@ -217,7 +248,11 @@ class AddidasCrawlSpider(scrapy.Spider):
             "Title of description": title_of_description.text.strip(),
             "General Description of the product": general_description_of_the_product.text.strip(),
             "general_description_itemization_list": general_description_itemization_list,
-            "size_chart": data
+            "size_chart": data,
+            "chart_data": chart_data,
+            "Rating": rating.text.strip(),
+            "Number Of Reviews": number_of_reviews.text.strip(),
+            "Recommended rate": recommended_rate.text.strip(),
         }
 
         driver.quit()
