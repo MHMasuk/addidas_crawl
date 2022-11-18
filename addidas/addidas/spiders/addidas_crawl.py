@@ -95,28 +95,10 @@ class AddidasCrawlSpider(scrapy.Spider):
 
         driver.get('https://shop.adidas.jp/products/HB9386/')
 
-        time.sleep(80)
+        time.sleep(10)
 
-        # Get the xpath of a certain word on webpage
-        # element = driver.find_elements(By.XPATH, '//div[@class="sizeChart test-sizeChart css-l7ym9o"]//table')
-        # Scroll to where the xpath is in
-        # driver.execute_script("return arguments[0].scrollIntoView();", element)
-
-        # Get scroll height
-        last_height = driver.execute_script("return document.body.scrollHeight")
-
-        while True:
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-            # Wait to load page
-            time.sleep(SCROLL_PAUSE_TIME)
-
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
-            last_height = new_height
+        # data_table = driver.find_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[4]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/table[1]/thead[1]/tr[2]/th[1]')
+        # print("data_table", data_table)
 
         breadcrumb_list = []
         links = driver.find_elements(By.XPATH, '//div[@class="breadcrumb_wrap"]/ul/li/a')[1:]
@@ -144,7 +126,6 @@ class AddidasCrawlSpider(scrapy.Spider):
 
         for available_size in available_sizes:
             available_size_list.append(available_size.text.strip())
-
         # print("available_size_list", available_size_list)
 
         sense_of_the_size_list = []
@@ -153,6 +134,7 @@ class AddidasCrawlSpider(scrapy.Spider):
             sense_of_the_size_list.append(sense_of_the_size.text.strip())
         # print('sense_of_the_size_list', sense_of_the_size_list)
 
+        # title of description
         title_of_description = driver.find_element(By.XPATH,
                                                    '//h4[@class="itemFeature heading test-commentItem-subheading"]')
         # print("Title of description", title_of_description.text.strip())
@@ -166,46 +148,56 @@ class AddidasCrawlSpider(scrapy.Spider):
                                                                 '//ul[@class="articleFeatures description_part css-woei2r"]//li')
         for general_description_itemization in general_description_itemizations:
             general_description_itemization_list.append(general_description_itemization.text.strip())
-        # print("general_description_itemization_list", general_description_itemization_list)
 
-        # Get scroll height
-        last_height = driver.execute_script("return document.body.scrollHeight")
+        # scroll to that element
+        desired_y = (general_description_of_the_product.size['height'] / 2) + general_description_of_the_product.location['y']
+        window_h = driver.execute_script('return window.innerHeight')
+        window_y = driver.execute_script('return window.pageYOffset')
+        current_y = (window_h / 2) + window_y
+        scroll_y_by = desired_y - current_y
 
-        while True:
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-            # Wait to load page
-            time.sleep(SCROLL_PAUSE_TIME)
-
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
-            last_height = new_height
-
+        driver.execute_script("window.scrollBy(0, arguments[0]);", scroll_y_by)
         time.sleep(5)
-
-        size_chart_headers_item = driver.find_elements(By.XPATH,
-                                                  '//div[@class="sizeChart test-sizeChart css-l7ym9o"]//table')
-        delay = 5  # seconds
-        try:
-            myElem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.ID, size_chart_headers_item)))
-            print("Page is ready!")
-        except TimeoutException:
-            print("Loading took too much time!")
 
         size_chart_headers_list = []
         size_chart_headers = driver.find_elements(By.XPATH, '//html//body//div//main//div//div[@class="js-sizeDescription css-1a9ggpu"]//div//div//table//thead//tr//th')
         print("size_chart_headers", size_chart_headers)
 
+        for size_chart_header in size_chart_headers:
+            size_chart_headers_list.append(size_chart_header.text.strip())
+        print("size_chart_headers_list", size_chart_headers_list)
 
+        # all the sizes
+        all_the_size_list = []
+        all_the_sizes = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr[1]//td//span')
+        for size in all_the_sizes:
+            all_the_size_list.append(size.text.strip())
 
-        # for size_chart_header in size_chart_headers:
-        #     size_chart_headers_list.append(size_chart_header.text.strip())
-        # print("size_chart_headers_list", size_chart_headers_list)
+        print('all_the_size_list', all_the_size_list)
 
+        all_the_chest_list = []
+        all_the_chest = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr[2]//td//span')
 
+        for chest in all_the_chest:
+            all_the_chest_list.append(chest.text.strip())
+        print("all_the_chest_list", all_the_chest_list)
+
+        data_zip = dict(zip(all_the_size_list, all_the_chest_list))
+        print("data zip", data_zip)
+
+        all_size_value_list = []
+        all_size_values = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr')
+
+        for all_size_value in all_size_values:
+            value_data_list = all_size_value.find_elements(By.XPATH, '//td//span')
+            value_list = []
+            for value_data in value_data_list:
+                value_list.append(value_data.text.strip())
+                print("all_size_value", value_data.text.strip())
+                print("main value list", value_list)
+            data_zip = dict(zip(all_the_size_list, value_list))
+            print("all_size_value_list data_zip", data_zip)
+            value_list.clear()
 
         data = {
             "chest": {
