@@ -39,7 +39,6 @@ class AddidasCrawlSpider(scrapy.Spider):
     name = 'addidas_crawl'
     allowed_domains = ['shop.adidas.jp']
     start_urls = ['https://shop.adidas.jp/men/']
-    driver = get_driver()
 
     def parse(self, response):
         driver = get_driver()
@@ -72,31 +71,32 @@ class AddidasCrawlSpider(scrapy.Spider):
         product_links = driver.find_elements(
             By.XPATH, "//div[@class='articleDisplayCard itemCardArea-cards test-card css-1lhtig4']//a"
         )
-        print(len(product_links))
+        # print(len(product_links))
 
         product_links = [product.get_attribute('href') for product in product_links]
-        print(product_links)
+        # print(product_links)
 
         next_arrow_elements = driver.find_elements(By.XPATH, '//ul[@class="buttonArrowArea"]//li//a')
 
-        for product_link in product_links:
+        for product_link in product_links[:6]:
             yield scrapy.Request(url=product_link, callback=self.parse_detail)
+    #
+    #     # if next_arrow_elements:
+        next_link = None
+        print("next_arrow_element", next_arrow_elements)
+        for next_arrow_element in next_arrow_elements[:-1]:
+            print("next_arrow_element", next_arrow_element.get_attribute('href'))
+            next_link = next_arrow_element.get_attribute('href')
 
-        if next_arrow_elements:
-            next_link = None
-            print("next_arrow_element", next_arrow_elements)
-            for next_arrow_element in next_arrow_elements[:-1]:
-                print("next_arrow_element", next_arrow_element.get_attribute('href'))
-                next_link = next_arrow_element.get_attribute('href')
-
-            driver.get(str(next_link))
+        driver.get(str(next_link))
 
         driver.quit()
 
     def parse_detail(self, response):
         driver = get_driver()
         driver.get(str(response.url))
-        time.sleep(15)
+        # driver.get('https://shop.adidas.jp/products/HB9386/')
+        time.sleep(10)
 
         # breadcrumb data
         breadcrumb_list = []
@@ -113,6 +113,17 @@ class AddidasCrawlSpider(scrapy.Spider):
         # pricing data
         pricing = driver.find_element(By.XPATH, '//span[@class="price-value test-price-value"]')
 
+        # scroll to that element
+        desired_y = (pricing.size['height'] / 2) + \
+                    pricing.location['y']
+        window_h = driver.execute_script('return window.innerHeight')
+        window_y = driver.execute_script('return window.pageYOffset')
+        current_y = (window_h / 2) + window_y
+        scroll_y_by = desired_y - current_y
+
+        driver.execute_script("window.scrollBy(0, arguments[0]);", scroll_y_by)
+        time.sleep(5)
+
         image_url_list = []
         image_urls = driver.find_elements(By.XPATH, '//ul[@class="slider-list test-slider-list"]//img')
         for image_url in image_urls:
@@ -127,6 +138,57 @@ class AddidasCrawlSpider(scrapy.Spider):
         sense_of_the_sizes = driver.find_elements(By.XPATH, '//div[@class="sizeFitBar css-zrdet1"]//span')
         for sense_of_the_size in sense_of_the_sizes:
             sense_of_the_size_list.append(sense_of_the_size.text.strip())
+
+        try:
+            coordinates_product_urls = []
+            coordinates_product_image_urls = []
+            coordinates_product_title_list = []
+            coordinates_product_price_list = []
+            coordinates_product_number_list = []
+
+            # coordinate product
+            coordinates_products = driver.find_elements(By.XPATH, '//*[@class="coordinateItems css-jhef4r"]//ul//li')
+
+            for coordinates_product in coordinates_products:
+                coordinates_product.click()
+                time.sleep(4)
+                coordinates_product_url = driver.find_element(
+                    By.XPATH,
+                    '//*[@class="coordinate_item_container test-coordinate_item_container add-open"]//a'
+                ).get_attribute('href')
+                coordinates_product_urls.append(coordinates_product_url)
+
+                coordinates_product_image_url = driver.find_element(
+                    By.XPATH,
+                    '//*[@class="coordinate_item_container test-coordinate_item_container add-open"]//img'
+                ).get_attribute('src')
+                coordinates_product_image_urls.append(coordinates_product_image_url)
+
+                coordinates_product_title = driver.find_element(
+                    By.XPATH,
+                    '//*[@class="coordinate_item_container test-coordinate_item_container add-open"]//div[@class="info_wrapper"]//span[@class="title"]'
+                ).text.strip()
+                coordinates_product_title_list.append(coordinates_product_title)
+
+                coordinates_product_price = driver.find_element(
+                    By.XPATH,
+                    '//*[@class="coordinate_item_container test-coordinate_item_container add-open"]//span[@class="price-value test-price-salePrice-value"]'
+                ).text.strip()
+                coordinates_product_price_list.append(coordinates_product_price)
+
+                product_number = coordinates_product_url.split("/")
+                coordinates_product_number_list.append(product_number[-2])
+
+            coordinated_product_data = list(zip(
+                coordinates_product_title_list,
+                coordinates_product_price_list,
+                coordinates_product_number_list,
+                coordinates_product_image_urls,
+                coordinates_product_urls,
+            ))
+            coordinated_product = coordinated_product_data
+        except:
+            coordinated_product = None
 
         # title of description
         title_of_description = driver.find_element(
@@ -164,17 +226,6 @@ class AddidasCrawlSpider(scrapy.Spider):
         all_the_sizes = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr[1]//td//span')
         for size in all_the_sizes:
             all_the_size_list.append(size.text.strip())
-
-        # all_the_chest_list = []
-        # all_the_chest = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr[2]//td//span')
-        #
-        # for chest in all_the_chest:
-        #     all_the_chest_list.append(chest.text.strip())
-        # # print("all_the_chest_list", all_the_chest_list)
-        #
-        # data_zip = dict(zip(all_the_size_list, all_the_chest_list))
-        # # print("data zip", data_zip)
-
         all_size_values = driver.find_elements(By.XPATH, '//table[@class="sizeChartTable"]//tbody//tr')
 
         all_value_zip_list = []
@@ -334,6 +385,7 @@ class AddidasCrawlSpider(scrapy.Spider):
             "Image URL": image_url_list,
             "Available size": available_size_list,
             "Sense of the size": sense_of_the_size_list,
+            "Coordinated Product": coordinated_product,
             "Title of description": title_of_description.text.strip(),
             "General Description of the product": general_description_of_the_product.text.strip(),
             "general_description_itemization_list": general_description_itemization_list,
