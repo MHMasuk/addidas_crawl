@@ -24,7 +24,7 @@ def get_driver():
     #         command_executor='http://localhost:4444/wd/hub',
     #         desired_capabilities=DesiredCapabilities.CHROME)
 
-    driver = webdriver.Chrome(executable_path='/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver',
+    driver = webdriver.Chrome(executable_path='/home/mhmasuk/coding/scrapy_project/adidas_project/chromedriver',
                               options=options)
     # driver = webdriver.Chrome('/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver')
 
@@ -42,53 +42,49 @@ class AddidasCrawlSpider(scrapy.Spider):
 
     def parse(self, response):
         driver = get_driver()
-        driver.get("https://shop.adidas.jp/men/")
-        time.sleep(5)
-        all_menu_url = driver.find_element(By.XPATH, "//a[@data-ga-event-label='mens-all']").get_attribute('href')
-        print("all_mens", all_menu_url)
-        time.sleep(5)
+        product_url_list = []
+        for i in range(3, 6):
+            driver.get(f"https://shop.adidas.jp/item/?gender=mens&page={i}")
+            time.sleep(10)
+            # all_menu_url = driver.find_element(By.XPATH, "//a[@data-ga-event-label='mens-all']").get_attribute('href')
+            # print("all_mens", all_menu_url)
+            # time.sleep(5)
+            #
+            # driver.get(str(all_menu_url))
+            # time.sleep(10)
+            #
+            # # Get scroll height
+            # last_height = driver.execute_script("return document.body.scrollHeight")
+            #
+            # while True:
+            #     # Scroll down to bottom
+            #     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            #
+            #     # Wait to load page
+            #     time.sleep(SCROLL_PAUSE_TIME)
+            #
+            #     # Calculate new scroll height and compare with last scroll height
+            #     new_height = driver.execute_script("return document.body.scrollHeight")
+            #     if new_height == last_height:
+            #         break
+            #     last_height = new_height
+            # time.sleep(5)
 
-        driver.get(str(all_menu_url))
-        time.sleep(10)
+            product_links = driver.find_elements(
+                By.XPATH, "//div[@class='articleDisplayCard itemCardArea-cards test-card css-1lhtig4']//a"
+            )
+            # print(len(product_links))
 
-        # Get scroll height
-        last_height = driver.execute_script("return document.body.scrollHeight")
+            for product in product_links:
+                product_url_list.append(product.get_attribute('href'))
 
-        while True:
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            # product_links = [product.get_attribute('href') for product in product_links]
+            # print(product_links)
 
-            # Wait to load page
-            time.sleep(SCROLL_PAUSE_TIME)
-
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
-            last_height = new_height
-        time.sleep(5)
-
-        product_links = driver.find_elements(
-            By.XPATH, "//div[@class='articleDisplayCard itemCardArea-cards test-card css-1lhtig4']//a"
-        )
-        # print(len(product_links))
-
-        product_links = [product.get_attribute('href') for product in product_links]
-        # print(product_links)
-
-        next_arrow_elements = driver.find_elements(By.XPATH, '//ul[@class="buttonArrowArea"]//li//a')
-
-        for product_link in product_links[:6]:
+        for product_link in product_url_list:
             yield scrapy.Request(url=product_link, callback=self.parse_detail)
-    #
-    #     # if next_arrow_elements:
-        next_link = None
-        print("next_arrow_element", next_arrow_elements)
-        for next_arrow_element in next_arrow_elements[:-1]:
-            print("next_arrow_element", next_arrow_element.get_attribute('href'))
-            next_link = next_arrow_element.get_attribute('href')
 
-        driver.get(str(next_link))
+        print("product_url_list", product_url_list)
 
         driver.quit()
 
@@ -378,7 +374,7 @@ class AddidasCrawlSpider(scrapy.Spider):
 
         yield {
             "Product URL": str(response.url),
-            'breadcrumb(Category)': breadcrumb_list,
+            'Breadcrumb(Category)': breadcrumb_list,
             'Category': category.text.strip(),
             'Product name': product_name.text.strip(),
             "Pricing": pricing.text.strip(),
@@ -389,7 +385,7 @@ class AddidasCrawlSpider(scrapy.Spider):
             "Title of description": title_of_description.text.strip(),
             "General Description of the product": general_description_of_the_product.text.strip(),
             "general_description_itemization_list": general_description_itemization_list,
-            "chart_data": chart_data,
+            "Tale Of Size": chart_data if chart_data else None,
             "Rating": rating.text.strip() if rating else None,
             "Number Of Reviews": number_of_reviews.text.strip() if number_of_reviews else None,
             "Recommended rate": recommended_rate.text.strip() if recommended_rate else None,
@@ -397,7 +393,7 @@ class AddidasCrawlSpider(scrapy.Spider):
             "Sense of Fitting/Rating": sense_of_fitting,
             "Appropriation of Length/Rating": appropriation_of_length,
             "Quality of material/Rating": quality_of_material,
-            "comfort": comfort,
+            "Comfort": comfort,
             "KWs": kws,
         }
         driver.quit()
