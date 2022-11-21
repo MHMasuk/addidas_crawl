@@ -24,7 +24,7 @@ def get_driver():
     #         command_executor='http://localhost:4444/wd/hub',
     #         desired_capabilities=DesiredCapabilities.CHROME)
 
-    driver = webdriver.Chrome(executable_path='/home/mhmasuk/coding/scrapy_project/adidas_project/chromedriver',
+    driver = webdriver.Chrome(executable_path='/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver',
                               options=options)
     # driver = webdriver.Chrome('/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver')
 
@@ -43,7 +43,7 @@ class AddidasCrawlSpider(scrapy.Spider):
     def parse(self, response):
         driver = get_driver()
         product_url_list = []
-        for i in range(3, 6):
+        for i in range(12, 14):
             driver.get(f"https://shop.adidas.jp/item/?gender=mens&page={i}")
             time.sleep(10)
             # all_menu_url = driver.find_element(By.XPATH, "//a[@data-ga-event-label='mens-all']").get_attribute('href')
