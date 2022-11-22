@@ -1,32 +1,16 @@
-from random import randint
-
 import scrapy
 import time
-import json
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 
 def get_driver():
     options = webdriver.ChromeOptions()
-    # options.add_argument("--headless")
     options.add_argument("--start-maximized")
 
-    # # initialize driver
-    # driver = webdriver.Remote(
-    #         command_executor='http://localhost:4444/wd/hub',
-    #         desired_capabilities=DesiredCapabilities.CHROME)
-
-    driver = webdriver.Chrome(executable_path='/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver',
+    driver = webdriver.Chrome(executable_path='./chromedriver',
                               options=options)
-    # driver = webdriver.Chrome('/home/ikhwan/coading/scrapy_project/addidas_crawl/chromedriver')
 
     return driver
 
@@ -43,55 +27,25 @@ class AddidasCrawlSpider(scrapy.Spider):
     def parse(self, response):
         driver = get_driver()
         product_url_list = []
-        for i in range(12, 14):
+        for i in range(14, 24):
             driver.get(f"https://shop.adidas.jp/item/?gender=mens&page={i}")
             time.sleep(10)
-            # all_menu_url = driver.find_element(By.XPATH, "//a[@data-ga-event-label='mens-all']").get_attribute('href')
-            # print("all_mens", all_menu_url)
-            # time.sleep(5)
-            #
-            # driver.get(str(all_menu_url))
-            # time.sleep(10)
-            #
-            # # Get scroll height
-            # last_height = driver.execute_script("return document.body.scrollHeight")
-            #
-            # while True:
-            #     # Scroll down to bottom
-            #     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            #
-            #     # Wait to load page
-            #     time.sleep(SCROLL_PAUSE_TIME)
-            #
-            #     # Calculate new scroll height and compare with last scroll height
-            #     new_height = driver.execute_script("return document.body.scrollHeight")
-            #     if new_height == last_height:
-            #         break
-            #     last_height = new_height
-            # time.sleep(5)
 
             product_links = driver.find_elements(
                 By.XPATH, "//div[@class='articleDisplayCard itemCardArea-cards test-card css-1lhtig4']//a"
             )
-            # print(len(product_links))
 
             for product in product_links:
                 product_url_list.append(product.get_attribute('href'))
 
-            # product_links = [product.get_attribute('href') for product in product_links]
-            # print(product_links)
-
         for product_link in product_url_list:
             yield scrapy.Request(url=product_link, callback=self.parse_detail)
-
-        print("product_url_list", product_url_list)
 
         driver.quit()
 
     def parse_detail(self, response):
         driver = get_driver()
         driver.get(str(response.url))
-        # driver.get('https://shop.adidas.jp/products/HB9386/')
         time.sleep(10)
 
         # breadcrumb data
@@ -245,11 +199,9 @@ class AddidasCrawlSpider(scrapy.Spider):
         size_chart_headers = driver.find_elements(
             By.XPATH,
             '//div[@class="sizeChart test-sizeChart css-l7ym9o"]//table[@class="sizeChartTable"]//thead//tr//th')
-        # print("size_chart_headers", size_chart_headers)
 
         for size_chart_header in size_chart_headers[1:]:
             size_chart_headers_list.append(size_chart_header.text.strip())
-        # print("size_chart_headers_list", size_chart_headers_list)
 
         chart_data = dict(zip(size_chart_headers_list, all_value_zip_list))
 
